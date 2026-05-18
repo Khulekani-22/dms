@@ -20,7 +20,7 @@ export const getDocuments = async (req: Request, res: Response): Promise<void> =
     .from('documents')
     .select(`
       id, original_name, mime_type, size, storage_path, uploaded_at,
-      profiles:uploaded_by (full_name)
+      dms_profiles:uploaded_by (full_name)
     `)
     .eq('folder_id', id)
     .order('uploaded_at', { ascending: false });

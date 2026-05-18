@@ -31,7 +31,7 @@ export const getShareLinks = async (req: AuthRequest, res: Response): Promise<vo
     .select(`
       id, pin, expires_at, max_uses, use_count, is_active, created_at,
       folders:folder_id (id, name),
-      profiles:created_by (full_name)
+      dms_profiles:created_by (full_name)
     `)
     .order('created_at', { ascending: false });
 

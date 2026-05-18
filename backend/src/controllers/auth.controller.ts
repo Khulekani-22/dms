@@ -19,7 +19,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   // Fetch profile/role
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('dms_profiles')
     .select('full_name, role')
     .eq('id', data.user.id)
     .single();

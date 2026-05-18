@@ -10,7 +10,7 @@ export const getFolders = async (req: AuthRequest, res: Response): Promise<void>
     .from('folders')
     .select(`
       id, name, description, parent_id, created_at,
-      profiles:created_by (full_name)
+      dms_profiles:created_by (full_name)
     `)
     .order('name');
 
@@ -38,7 +38,7 @@ export const getFolder = async (req: AuthRequest, res: Response): Promise<void> 
     .from('folders')
     .select(`
       id, name, description, parent_id, created_at,
-      profiles:created_by (full_name)
+      dms_profiles:created_by (full_name)
     `)
     .eq('id', id)
     .single();

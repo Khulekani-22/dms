@@ -34,7 +34,7 @@ export const authMiddleware = async (
 
     // Fetch admin profile + role from profiles table
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+      .from('dms_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
