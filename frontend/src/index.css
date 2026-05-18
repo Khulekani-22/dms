@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── Brand colours ── */
+:root {
+  --orange: #E85D04;
+  --orange-dark: #C44D02;
+  --orange-light: #FFF0E6;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #F5F6FA;
+  color: #1a1a2e;
+}
+
+/* ── Orange primary utilities ── */
+.text-primary          { color: var(--orange); }
+.bg-primary            { background-color: var(--orange); }
+.border-primary        { border-color: var(--orange); }
+.ring-primary          { --tw-ring-color: var(--orange); }
+.bg-primary\/5         { background-color: rgba(232,93,4,0.05); }
+.bg-primary\/10        { background-color: rgba(232,93,4,0.1); }
+.bg-primary\/20        { background-color: rgba(232,93,4,0.2); }
+.bg-primary\/90        { background-color: rgba(232,93,4,0.9); }
+.shadow-primary\/30    { --tw-shadow-color: rgba(232,93,4,0.3); }
+.hover\:bg-primary\/90:hover  { background-color: var(--orange-dark); }
+.hover\:text-primary\/80:hover { color: rgba(232,93,4,0.8); }
+.focus\:border-primary:focus  { border-color: var(--orange); }
+.focus\:ring-primary:focus    { --tw-ring-color: var(--orange); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb { background: #374151; }

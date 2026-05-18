@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+dist/
+build/
+*/dist/
+*/build/
+
+# Environment files — never commit secrets
+.env
+*/.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# TypeScript compiled output
+backend/dist/
+
+# Uploads / temp
+uploads/
+tmp/
+
+# UI template folders (reference only, not part of project)
+ui/
+ui2/
