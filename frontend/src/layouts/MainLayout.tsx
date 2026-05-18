@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   FolderOpen, Share2, ClipboardList,
-  LogOut, FileStack, Moon, Sun, User, Menu
+  LogOut, Moon, Sun, User, Menu
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -43,9 +43,7 @@ const MainLayout = () => {
     <>
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-[18px] border-b border-neutral-100 dark:border-neutral-800">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#E85D04' }}>
-          <FileStack size={16} className="text-white" />
-        </div>
+        <img src="/logo-22.png" alt="22 On Sloane" className="h-8 w-auto object-contain shrink-0" />
         <span className="font-bold text-neutral-800 dark:text-white text-sm tracking-tight">DMS</span>
       </div>
 

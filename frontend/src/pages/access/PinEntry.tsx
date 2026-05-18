@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { shareService } from '../../services/shareService';
-import { ShieldCheck } from 'lucide-react';
 
 const PinEntry = () => {
   const { pin: urlPin } = useParams<{ pin?: string }>();
@@ -77,8 +76,8 @@ const PinEntry = () => {
           <div className="absolute top-[-60px] left-[-60px] w-56 h-56 rounded-full bg-white/10" />
           <div className="absolute bottom-[-40px] right-[-40px] w-44 h-44 rounded-full bg-white/10" />
           <div className="relative z-10 flex flex-col items-center text-center mt-8">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-5">
-              <ShieldCheck size={26} className="text-white" />
+            <div className="mb-5">
+              <img src="/logo-22.png" alt="22 On Sloane" className="h-14 w-auto object-contain drop-shadow-lg" />
             </div>
             <h2 className="text-xl font-bold text-white leading-snug">Secure<br />Document Access</h2>
             <p className="text-orange-100 text-sm mt-3 max-w-[160px] leading-relaxed">

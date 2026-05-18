@@ -40,9 +40,9 @@ const Login = () => {
           <div className="absolute top-1/2 right-[-30px] w-24 h-24 rounded-full bg-white/10" />
 
           <div className="relative z-10 flex flex-col items-center text-center mt-8">
-            {/* Logo placeholder */}
-            <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center mb-6 shadow-lg">
-              <Lock size={28} className="text-white" />
+            {/* Logo */}
+            <div className="mb-6">
+              <img src="/logo-22.png" alt="22 On Sloane" className="h-16 w-auto object-contain drop-shadow-lg" />
             </div>
             <h2 className="text-2xl font-bold text-white leading-snug">Document<br />Management</h2>
             <p className="text-orange-100 text-sm mt-3 leading-relaxed max-w-[180px]">
