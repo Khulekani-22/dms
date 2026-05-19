@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { msalInstance, loginRequest } from '../../lib/msal';
 
 const Login = () => {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, setUser } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,12 +31,16 @@ const Login = () => {
   const handleMicrosoftLogin = async () => {
     setMsalLoading(true);
     try {
-      await msalInstance.initialize();
-      await msalInstance.loginRedirect(loginRequest);
-      // Page will redirect — no code after this runs
+      // loginPopup — no redirect URI needed, resolves when popup closes
+      const result = await msalInstance.loginPopup(loginRequest);
+      const res = await authService.loginWithMicrosoft(result.idToken);
+      setUser(res.user);
+      toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
+      navigate('/folders');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
       toast.error(msg);
+    } finally {
       setMsalLoading(false);
     }
   };
