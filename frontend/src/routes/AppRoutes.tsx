@@ -6,6 +6,7 @@ import ProtectedRoutes from './ProtectedRoutes';
 
 // Auth pages
 const Login = lazy(() => import('../pages/auth/Login'));
+const MicrosoftCallback = lazy(() => import('../pages/auth/MicrosoftCallback'));
 
 // Admin DMS pages
 const FolderList = lazy(() => import('../pages/dms/folders/FolderList'));
@@ -31,6 +32,12 @@ export const router = createBrowserRouter([
     children: [
       { path: '/auth/login', element: <Suspense fallback={<Loader />}><Login /></Suspense> },
     ],
+  },
+
+  // ── Microsoft SSO callback (public — no auth check) ──────────
+  {
+    path: '/auth/callback',
+    element: <Suspense fallback={<Loader />}><MicrosoftCallback /></Suspense>,
   },
 
   // ── Public PIN access portal ─────────────────────────────────

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { msalInstance, loginRequest } from '../../lib/msal';
+import { msalInstance, msalReady, loginRequest } from '../../lib/msal';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
@@ -17,20 +17,27 @@ const MicrosoftCallback = () => {
 
     const finish = async () => {
       try {
-        // MSAL is already initialized in main.tsx — just handle the redirect
+        console.log('[MicrosoftCallback] Awaiting msalReady...');
+        await msalReady;
+        console.log('[MicrosoftCallback] msalReady resolved, calling handleRedirectPromise...');
+
         const result = await msalInstance.handleRedirectPromise();
+        console.log('[MicrosoftCallback] handleRedirectPromise result:', result);
 
         if (result && result.idToken) {
-          // Happy path — exchange Microsoft ID token for DMS JWT
+          console.log('[MicrosoftCallback] Got idToken, posting to backend...');
           const res = await authService.loginWithMicrosoft(result.idToken);
+          console.log('[MicrosoftCallback] Backend responded:', res);
           setUser(res.user);
           toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
           navigate('/folders', { replace: true });
           return;
         }
 
-        // No redirect result in URL — try acquiring token silently from cached account
+        // No redirect result — try silent token from cached account
+        console.warn('[MicrosoftCallback] No redirect result — checking cached accounts...');
         const accounts = msalInstance.getAllAccounts();
+        console.log('[MicrosoftCallback] Cached accounts:', accounts);
         if (accounts.length > 0) {
           const silent = await msalInstance.acquireTokenSilent({
             ...loginRequest,
@@ -43,9 +50,10 @@ const MicrosoftCallback = () => {
           return;
         }
 
-        // Nothing to work with — send back to login
+        console.warn('[MicrosoftCallback] No result and no cached accounts — back to login');
         navigate('/auth/login', { replace: true });
       } catch (err: unknown) {
+        console.error('[MicrosoftCallback] Error:', err);
         const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
         setError(msg);
         toast.error(msg);
