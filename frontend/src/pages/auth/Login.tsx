@@ -33,12 +33,21 @@ const Login = () => {
     try {
       // Ensure MSAL has fully initialized before triggering any interaction
       await msalReady;
+
+      // Clear any stale interaction lock left in sessionStorage from a previous
+      // attempt that was cancelled/closed — this is what causes interaction_in_progress
+      Object.keys(sessionStorage)
+        .filter((k) => k.includes('interaction.status'))
+        .forEach((k) => sessionStorage.removeItem(k));
+
       const result = await msalInstance.loginPopup(loginRequest);
       const res = await authService.loginWithMicrosoft(result.idToken);
       setUser(res.user);
       toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
       navigate('/folders');
     } catch (err: unknown) {
+      // Silently ignore user-cancelled popups
+      if (err instanceof Error && err.message.includes('user_cancelled')) return;
       const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
       toast.error(msg);
     } finally {
