@@ -137,7 +137,7 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
   //    same Entra user always maps to the same row.
   const { data: existing } = await supabase
     .from('dms_profiles')
-    .select('id, role, full_name')
+    .select('id, role, full_name, email')
     .eq('microsoft_id', microsoftId)
     .maybeSingle();
 
@@ -147,45 +147,56 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
   if (existing) {
     userId = existing.id;
     role = existing.role ?? 'admin';
+    console.log('[microsoftLogin] Existing user found:', userId);
   } else {
-    // First login — create a new profile row
-    // Generate a UUID v5-style ID from the Microsoft OID (deterministic)
-    const crypto = await import('crypto');
-    userId = crypto.createHash('sha256').update(microsoftId).digest('hex').replace(
-      /^(.{8})(.{4})(.{4})(.{4})(.{12}).*/,
-      '$1-$2-$3-$4-$5'
-    );
+    console.log('[microsoftLogin] New user — creating auth.users entry then profile...');
 
-    const { error: insertError } = await supabase
+    // Must create a real auth.users row first because dms_profiles.id
+    // is a FK to auth.users(id). Use the admin API so no password/email
+    // confirmation is required.
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { full_name: fullName, microsoft_id: microsoftId },
+    });
+
+    if (authError || !authData?.user) {
+      // User might already exist in auth.users (duplicate email) — look them up
+      console.warn('[microsoftLogin] createUser error:', authError?.message);
+
+      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+      console.log('[microsoftLogin] listUsers error:', listError?.message);
+
+      const existingAuthUser = users?.find((u) => u.email?.toLowerCase() === email);
+      if (!existingAuthUser) {
+        res.status(500).json({ error: 'Failed to create auth user', detail: authError?.message });
+        return;
+      }
+      userId = existingAuthUser.id;
+      console.log('[microsoftLogin] Found existing auth user by email:', userId);
+    } else {
+      userId = authData.user.id;
+      console.log('[microsoftLogin] Created new auth user:', userId);
+    }
+
+    // Upsert the profile row (trigger may have already created it)
+    const { error: profileError } = await supabase
       .from('dms_profiles')
-      .insert({
+      .upsert({
         id: userId,
         email,
         full_name: fullName,
         role: 'admin',
         microsoft_id: microsoftId,
-      });
+      }, { onConflict: 'id' });
 
-    if (insertError) {
-      // Might already exist by email — try to fetch
-      const { data: byEmail } = await supabase
+    if (profileError) {
+      console.error('[microsoftLogin] Profile upsert error:', profileError.message, profileError.details);
+      // Non-fatal if row already exists — just update microsoft_id
+      await supabase
         .from('dms_profiles')
-        .select('id, role')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (byEmail) {
-        userId = byEmail.id;
-        role = byEmail.role ?? 'admin';
-        // Backfill microsoft_id
-        await supabase
-          .from('dms_profiles')
-          .update({ microsoft_id: microsoftId })
-          .eq('id', userId);
-      } else {
-        res.status(500).json({ error: 'Failed to create user profile' });
-        return;
-      }
+        .update({ microsoft_id: microsoftId, email, full_name: fullName })
+        .eq('id', userId);
     }
 
     role = 'admin';
