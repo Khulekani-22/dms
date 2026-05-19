@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { msalInstance } from '../../lib/msal';
+import { msalInstance, loginRequest } from '../../lib/msal';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
@@ -17,21 +17,34 @@ const MicrosoftCallback = () => {
 
     const finish = async () => {
       try {
-        // MSAL initialise must complete before handleRedirectPromise
-        await msalInstance.initialize();
+        // MSAL is already initialized in main.tsx — just handle the redirect
         const result = await msalInstance.handleRedirectPromise();
 
-        if (!result) {
-          // No redirect result — shouldn't land here normally
-          navigate('/auth/login');
+        if (result && result.idToken) {
+          // Happy path — exchange Microsoft ID token for DMS JWT
+          const res = await authService.loginWithMicrosoft(result.idToken);
+          setUser(res.user);
+          toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
+          navigate('/folders', { replace: true });
           return;
         }
 
-        // Exchange Microsoft ID token for our own DMS JWT
-        const res = await authService.loginWithMicrosoft(result.idToken);
-        setUser(res.user);
-        toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
-        navigate('/folders');
+        // No redirect result in URL — try acquiring token silently from cached account
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+          const silent = await msalInstance.acquireTokenSilent({
+            ...loginRequest,
+            account: accounts[0],
+          });
+          const res = await authService.loginWithMicrosoft(silent.idToken);
+          setUser(res.user);
+          toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
+          navigate('/folders', { replace: true });
+          return;
+        }
+
+        // Nothing to work with — send back to login
+        navigate('/auth/login', { replace: true });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
         setError(msg);
