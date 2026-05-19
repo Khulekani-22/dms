@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
+import { msalInstance, loginRequest } from '../../lib/msal';
 
 const Login = () => {
   const { login, isLoading } = useAuth();
@@ -11,6 +12,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [msalLoading, setMsalLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +24,19 @@ const Login = () => {
       const msg = err instanceof Error ? err.message : 'Invalid credentials. Please try again.';
       setError(msg);
       toast.error(msg);
+    }
+  };
+
+  const handleMicrosoftLogin = async () => {
+    setMsalLoading(true);
+    try {
+      await msalInstance.initialize();
+      await msalInstance.loginRedirect(loginRequest);
+      // Page will redirect — no code after this runs
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
+      toast.error(msg);
+      setMsalLoading(false);
     }
   };
 
@@ -120,6 +135,30 @@ const Login = () => {
               {isLoading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
+
+          {/* ── Divider ── */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+            <span className="text-xs text-neutral-400 font-medium">or continue with</span>
+            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+          </div>
+
+          {/* ── Microsoft SSO button ── */}
+          <button
+            type="button"
+            onClick={handleMicrosoftLogin}
+            disabled={msalLoading}
+            className="w-full flex items-center justify-center gap-3 border border-neutral-300 dark:border-neutral-600 rounded-lg py-2.5 px-4 text-sm font-semibold text-neutral-700 dark:text-neutral-200 bg-white dark:bg-[#253042] hover:bg-neutral-50 dark:hover:bg-[#1e2734] transition disabled:opacity-60"
+          >
+            {/* Microsoft logo SVG */}
+            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+              <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+              <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+            </svg>
+            {msalLoading ? 'Redirecting…' : 'Sign in with Microsoft'}
+          </button>
         </div>
       </div>
     </div>

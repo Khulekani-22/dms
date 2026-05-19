@@ -43,4 +43,11 @@ export const authService = {
   isAuthenticated: (): boolean => {
     return !!localStorage.getItem('dms_token');
   },
+
+  loginWithMicrosoft: async (idToken: string): Promise<LoginResponse> => {
+    const { data } = await api.post<LoginResponse>('/auth/microsoft', { idToken });
+    localStorage.setItem('dms_token', data.token);
+    localStorage.setItem('dms_user', JSON.stringify(data.user));
+    return data;
+  },
 };

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import { supabase } from '../lib/supabase';
 
 export interface AuthRequest extends Request {
@@ -23,20 +24,43 @@ export const authMiddleware = async (
 
   const token = authHeader.split(' ')[1];
 
+  // ── Path 1: Supabase JWT ──────────────────────────────────
   try {
-    // Verify the Supabase JWT and get the user
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    if (error || !user) {
-      res.status(401).json({ error: 'Invalid or expired token' });
+    if (!error && user) {
+      const { data: profile, error: profileError } = await supabase
+        .from('dms_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        res.status(403).json({ error: 'User profile not found' });
+        return;
+      }
+
+      req.user = { id: user.id, email: user.email ?? '', role: profile.role };
+      next();
       return;
     }
+  } catch {
+    // Not a Supabase token — fall through to our own JWT check
+  }
 
-    // Fetch admin profile + role from profiles table
+  // ── Path 2: Our own JWT (issued for Microsoft SSO users) ──
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+      id: string;
+      email: string;
+      role: string;
+    };
+
+    // Confirm the user still exists in dms_profiles
     const { data: profile, error: profileError } = await supabase
       .from('dms_profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', decoded.id)
       .single();
 
     if (profileError || !profile) {
@@ -44,14 +68,9 @@ export const authMiddleware = async (
       return;
     }
 
-    req.user = {
-      id: user.id,
-      email: user.email ?? '',
-      role: profile.role,
-    };
-
+    req.user = { id: decoded.id, email: decoded.email, role: profile.role };
     next();
   } catch {
-    res.status(401).json({ error: 'Token verification failed' });
+    res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
