@@ -17,8 +17,20 @@ const PORT = process.env.PORT ?? 4000;
 
 // ── Security middleware ───────────────────────────────────────
 app.use(helmet());
+const allowedOrigins = [
+  process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
 app.use(cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    }
+  },
   credentials: true,
 }));
 
@@ -53,7 +65,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/share', shareRoutes);
 app.use('/api/logs', logRoutes);
 
-// PIN validate gets its own stricter rate limit
+// PIN validate rate limiter applied directly on the share router path
 app.use('/api/share/access/validate', pinLimiter);
 
 // ── 404 handler ───────────────────────────────────────────────

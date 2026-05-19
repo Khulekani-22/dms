@@ -14,7 +14,7 @@ export const getLogs = async (req: AuthRequest, res: Response): Promise<void> =>
         pin,
         folders:folder_id (name)
       )
-    `)
+    `, { count: 'exact' })
     .order('accessed_at', { ascending: false })
     .range(Number(offset), Number(offset) + Number(limit) - 1);
 
