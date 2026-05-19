@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Signing in...</title>
+  </head>
+  <body>
+    <!--
+      This page is used exclusively as the MSAL popup redirectUri.
+      MSAL browser loads here inside the popup window, processes the
+      auth code from Microsoft, posts it back to the opener, then
+      the popup closes automatically. The main app window never
+      navigates here.
+    -->
+    <script src="https://alcdn.msauth.net/browser/3.27.0/js/msal-browser.min.js"
+            crossorigin="anonymous"></script>
+    <script>
+      (async () => {
+        try {
+          const clientId = document.currentScript
+            ? null
+            : null; // resolved via meta tags below
+          // Read values injected as meta tags so we avoid hardcoding secrets
+          const getMeta = (name) => {
+            const el = document.querySelector('meta[name="' + name + '"]');
+            return el ? el.getAttribute('content') : null;
+          };
+
+          // Fallback: values baked in at build time via index.html template or
+          // read directly from the parent window's MSAL cache key prefix which
+          // contains the clientId.
+          // For simplicity we read from the storage key pattern.
+          let clientId2 = null;
+          let tenantId = null;
+
+          // Try to extract clientId from sessionStorage keys written by MSAL
+          for (const key of Object.keys(sessionStorage)) {
+            const m = key.match(/^([0-9a-f-]{36})\..*$/i);
+            if (m) { clientId2 = m[1]; break; }
+          }
+
+          if (!clientId2) {
+            // Last-resort: close the popup so the user isn't stuck
+            window.close();
+            return;
+          }
+
+          const msalInstance = new msal.PublicClientApplication({
+            auth: {
+              clientId: clientId2,
+              redirectUri: window.location.href.split('?')[0].split('#')[0],
+            },
+            cache: { cacheLocation: 'sessionStorage' },
+          });
+
+          await msalInstance.initialize();
+          await msalInstance.handleRedirectPromise();
+          window.close();
+        } catch (e) {
+          window.close();
+        }
+      })();
+    </script>
+  </body>
+</html>
