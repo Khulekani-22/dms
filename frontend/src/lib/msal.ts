@@ -9,22 +9,23 @@ const msalConfig: Configuration = {
       : 'http://localhost:5173',
   },
   cache: {
-    cacheLocation: 'sessionStorage',
+    // localStorage is shared between the popup and the opener window (same origin).
+    // sessionStorage is NOT shared — the popup gets a fresh empty sessionStorage,
+    // so handleRedirectPromise() in the popup sees no interaction state and returns
+    // null without posting the token back → main window times out.
+    cacheLocation: 'localStorage',
   },
 };
 
-// Wipe any stale interaction lock from a previous session/tab before
-// creating the instance — prevents interaction_in_progress on fresh load
+// Wipe any stale interaction lock before creating the instance
 if (typeof window !== 'undefined') {
-  Object.keys(sessionStorage)
+  Object.keys(localStorage)
     .filter((k) => k.includes('interaction.status'))
-    .forEach((k) => sessionStorage.removeItem(k));
+    .forEach((k) => localStorage.removeItem(k));
 }
 
 export const msalInstance = new PublicClientApplication(msalConfig);
 
-// Export the initialization promise — callers must await this before any
-// interactive API call (loginPopup, acquireTokenPopup, etc.)
 export const msalReady: Promise<void> = msalInstance.initialize();
 
 export const loginRequest: PopupRequest = {
