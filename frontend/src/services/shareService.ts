@@ -53,4 +53,19 @@ export const shareService = {
     sessionStorage.setItem('dms_pin_folder', JSON.stringify(data.folder));
     return data;
   },
+
+  sendEmail: async (
+    linkId: string,
+    payload: {
+      recipients: { email: string; name?: string }[];
+      pin: string;
+      folderName: string;
+      accessUrl: string;
+      expiresAt?: string | null;
+      message?: string;
+    }
+  ): Promise<{ sent: number; ids: unknown }> => {
+    const { data } = await api.post(`/share/${linkId}/email`, payload);
+    return data;
+  },
 };

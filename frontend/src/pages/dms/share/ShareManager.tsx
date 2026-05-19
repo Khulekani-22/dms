@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { shareService, ShareLink } from '../../../services/shareService';
 import { folderService, Folder } from '../../../services/folderService';
-import { Copy, Link2, Trash2, Plus, ShieldOff, ShieldCheck } from 'lucide-react';
+import { Copy, Link2, Trash2, Plus, ShieldOff, ShieldCheck, Mail, X, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+
+interface EmailTarget {
+  email: string;
+  name?: string;
+}
 
 const ShareManager = () => {
   const navigate = useNavigate();
@@ -19,6 +24,13 @@ const ShareManager = () => {
   });
   const [creating, setCreating] = useState(false);
   const [generated, setGenerated] = useState<{ pin: string; url: string; folder: string } | null>(null);
+
+  // ── Email modal state ──────────────────────────────────────
+  const [emailModal, setEmailModal] = useState<ShareLink | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailTargets, setEmailTargets] = useState<EmailTarget[]>([]);
+  const [sending, setSending] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -82,6 +94,58 @@ const ShareManager = () => {
     }
   };
 
+  // ── Parse email input into targets ─────────────────────────
+  const parseEmails = (raw: string): EmailTarget[] =>
+    raw
+      .split(/[\s,;\n]+/)
+      .map((s) => s.trim())
+      .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s))
+      .map((email) => ({ email }));
+
+  const addEmailTargets = () => {
+    const parsed = parseEmails(emailInput);
+    const existing = new Set(emailTargets.map((t) => t.email));
+    const fresh = parsed.filter((t) => !existing.has(t.email));
+    if (!fresh.length) {
+      toast.error('No new valid email addresses found');
+      return;
+    }
+    setEmailTargets((prev) => [...prev, ...fresh]);
+    setEmailInput('');
+  };
+
+  const removeTarget = (email: string) =>
+    setEmailTargets((prev) => prev.filter((t) => t.email !== email));
+
+  const handleSendEmail = async () => {
+    if (!emailModal) return;
+    if (!emailTargets.length) {
+      toast.error('Add at least one email address');
+      return;
+    }
+    setSending(true);
+    try {
+      const accessUrl = `${window.location.origin}/access`;
+      const result = await shareService.sendEmail(emailModal.id, {
+        recipients: emailTargets,
+        pin: emailModal.pin,
+        folderName: emailModal.folders?.name ?? 'Documents',
+        accessUrl,
+        expiresAt: emailModal.expires_at,
+        message: emailMessage.trim() || undefined,
+      });
+      toast.success(`Email sent to ${result.sent} recipient${result.sent === 1 ? '' : 's'}`);
+      setEmailModal(null);
+      setEmailTargets([]);
+      setEmailInput('');
+      setEmailMessage('');
+    } catch {
+      toast.error('Failed to send emails');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -121,6 +185,111 @@ const ShareManager = () => {
             </button>
           </div>
           <button onClick={() => setGenerated(null)} className="mt-3 text-xs text-green-600 hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {/* Email modal */}
+      {emailModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#253042] rounded-2xl shadow-2xl w-full max-w-lg">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-neutral-700">
+              <div>
+                <h2 className="text-base font-semibold dark:text-white flex items-center gap-2">
+                  <Mail size={18} className="text-primary" /> Send via Email
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Folder: <strong className="text-primary">{emailModal.folders?.name}</strong>
+                  &nbsp;· PIN: <strong className="font-mono tracking-widest">{emailModal.pin}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => { setEmailModal(null); setEmailTargets([]); setEmailInput(''); setEmailMessage(''); }}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-white transition">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              {/* Email input row */}
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-neutral-300">
+                  Add recipients
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="email@example.com, another@example.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmailTargets(); } }}
+                    className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-[#1e2734] dark:border-neutral-600 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={addEmailTargets}
+                    className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition">
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Separate multiple addresses with commas, spaces, or new lines. Press Enter to add.
+                </p>
+              </div>
+
+              {/* Tags */}
+              {emailTargets.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {emailTargets.map((t) => (
+                    <span key={t.email}
+                      className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-medium px-3 py-1 rounded-full">
+                      {t.email}
+                      <button onClick={() => removeTarget(t.email)} className="hover:text-red-500 transition">
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Optional message */}
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-neutral-300">
+                  Personal message <span className="text-neutral-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Add a short note to appear in the email…"
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm resize-none dark:bg-[#1e2734] dark:border-neutral-600 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t dark:border-neutral-700 flex items-center justify-between">
+              <span className="text-xs text-neutral-400">
+                {emailTargets.length} recipient{emailTargets.length !== 1 ? 's' : ''} · sent from noreply@22onsloane.co
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setEmailModal(null); setEmailTargets([]); setEmailInput(''); setEmailMessage(''); }}
+                  className="px-4 py-2 text-sm rounded-lg border hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={sending || !emailTargets.length}
+                  className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60 transition">
+                  <Send size={14} />
+                  {sending ? 'Sending…' : `Send to ${emailTargets.length || '…'}`}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -247,6 +416,11 @@ const ShareManager = () => {
                         onClick={() => copyToClipboard(`${window.location.origin}/access/${link.pin}`, 'Link')}
                         className="text-neutral-400 hover:text-primary transition" title="Copy link">
                         <Link2 size={15} />
+                      </button>
+                      <button
+                        onClick={() => { setEmailModal(link); }}
+                        className="text-neutral-400 hover:text-primary transition" title="Send via email">
+                        <Mail size={15} />
                       </button>
                       <button
                         onClick={() => handleToggleActive(link)}

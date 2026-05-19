@@ -11,6 +11,7 @@ import {
   getDocumentsByPin,
   downloadDocumentByPin,
 } from '../controllers/document.controller';
+import { emailShareLink } from '../controllers/email.controller';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { pinMiddleware } from '../middleware/pinMiddleware';
 
@@ -27,6 +28,7 @@ router.get('/', authMiddleware, getShareLinks);
 router.post('/', authMiddleware, createShareLink);
 router.patch('/:id', authMiddleware, updateShareLink);
 router.delete('/:id', authMiddleware, deleteShareLink);
+router.post('/:id/email', authMiddleware, emailShareLink);
 
 // ── Public PIN routes ────────────────────────────────────────
 router.post('/access/validate', pinLimiter, validatePin);
