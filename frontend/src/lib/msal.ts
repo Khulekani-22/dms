@@ -15,8 +15,9 @@ const msalConfig: Configuration = {
 
 export const msalInstance = new PublicClientApplication(msalConfig);
 
-// Initialize once at module load — safe to call multiple times
-msalInstance.initialize();
+// Store the initialization promise so callers can await it before
+// triggering any interaction (avoids interaction_in_progress errors).
+export const msalReady: Promise<void> = msalInstance.initialize();
 
 export const loginRequest: PopupRequest = {
   scopes: ['openid', 'profile', 'email', 'User.Read'],

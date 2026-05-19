@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
-import { msalInstance, loginRequest } from '../../lib/msal';
+import { msalInstance, msalReady, loginRequest } from '../../lib/msal';
 
 const Login = () => {
   const { login, isLoading, setUser } = useAuth();
@@ -31,7 +31,8 @@ const Login = () => {
   const handleMicrosoftLogin = async () => {
     setMsalLoading(true);
     try {
-      // loginPopup — no redirect URI needed, resolves when popup closes
+      // Ensure MSAL has fully initialized before triggering any interaction
+      await msalReady;
       const result = await msalInstance.loginPopup(loginRequest);
       const res = await authService.loginWithMicrosoft(result.idToken);
       setUser(res.user);
