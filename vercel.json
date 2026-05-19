@@ -11,7 +11,6 @@
     }
   },
   "rewrites": [
-    { "source": "/_/backend/(.*)", "destination": "/_/backend/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!_/).*)", "destination": "/index.html" }
   ]
 }
