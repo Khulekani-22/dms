@@ -29,15 +29,21 @@ const Login = () => {
 
   const handleMicrosoftLogin = async () => {
     setMsalLoading(true);
-    console.log('[MSALFlow] Starting loginRedirect — page will navigate to Microsoft...');
+    const callbackUri = `${window.location.origin}/auth/callback`;
+    console.log('[MSALFlow] loginRedirect → redirectUri will be:', callbackUri);
+    console.log('[MSALFlow] Make sure this URI is registered in Azure Portal → App registrations → Authentication → SPA');
     try {
       await msalReady;
-      // Clear any stale interaction locks
+      // Clear stale interaction locks
       Object.keys(localStorage)
         .filter((k) => k.includes('interaction.status'))
         .forEach((k) => localStorage.removeItem(k));
-      await msalInstance.loginRedirect(loginRequest);
-      // Page navigates away — code below will not run
+      // Explicitly pass redirectUri so there is zero ambiguity
+      await msalInstance.loginRedirect({
+        ...loginRequest,
+        redirectUri: callbackUri,
+      });
+      // Page navigates away — nothing below runs
     } catch (err: unknown) {
       console.error('[MSALFlow] loginRedirect error:', err);
       const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
