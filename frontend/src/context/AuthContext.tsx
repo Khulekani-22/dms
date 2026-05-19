@@ -17,12 +17,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authService.isAuthenticated()) {
+      console.log('[AuthContext] Token found in localStorage — calling getMe() to rehydrate user...');
       authService.getMe()
-        .then(setUser)
-        .catch(() => {
+        .then((u) => {
+          console.log('[AuthContext] getMe() success:', u);
+          setUser(u);
+        })
+        .catch((err) => {
+          console.error('[AuthContext] getMe() FAILED — clearing token and setting user to null. This will trigger a redirect to /auth/login if on a protected route.', err);
           authService.logout();
           setUser(null);
         });
+    } else {
+      console.log('[AuthContext] No token in localStorage on mount — user is unauthenticated');
     }
   }, []);
 

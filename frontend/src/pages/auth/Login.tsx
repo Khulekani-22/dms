@@ -30,27 +30,65 @@ const Login = () => {
 
   const handleMicrosoftLogin = async () => {
     setMsalLoading(true);
+    console.group('%c[MSALFlow] handleMicrosoftLogin START', 'color:#E85D04;font-weight:bold');
     try {
-      // Ensure MSAL has fully initialized before triggering any interaction
+      console.log('[MSALFlow] 1. Awaiting msalReady...');
       await msalReady;
+      console.log('[MSALFlow] 2. msalReady resolved ✓');
 
-      // Clear any stale interaction lock left in sessionStorage from a previous
-      // attempt that was cancelled/closed — this is what causes interaction_in_progress
-      Object.keys(sessionStorage)
-        .filter((k) => k.includes('interaction.status'))
-        .forEach((k) => sessionStorage.removeItem(k));
+      // Clear stale interaction locks
+      const staleLocks = Object.keys(sessionStorage).filter((k) => k.includes('interaction.status'));
+      if (staleLocks.length) {
+        console.warn('[MSALFlow] Clearing stale interaction locks:', staleLocks);
+        staleLocks.forEach((k) => sessionStorage.removeItem(k));
+      }
 
+      console.log('[MSALFlow] 3. Calling loginPopup with request:', loginRequest);
       const result = await msalInstance.loginPopup(loginRequest);
-      const res = await authService.loginWithMicrosoft(result.idToken);
+
+      console.log('[MSALFlow] 4. loginPopup resolved ✓');
+      console.log('[MSALFlow]    account:', result.account);
+      console.log('[MSALFlow]    scopes:', result.scopes);
+      console.log('[MSALFlow]    idToken (first 80 chars):', result.idToken?.slice(0, 80));
+      console.log('[MSALFlow]    accessToken present:', !!result.accessToken);
+      console.log('[MSALFlow]    redirectUri used by MSAL:', (result as any).redirectUri ?? 'not exposed');
+      console.log('[MSALFlow]    full AuthenticationResult:', result);
+
+      console.log('[MSALFlow] 5. Posting idToken to backend /api/auth/microsoft...');
+      let res;
+      try {
+        res = await authService.loginWithMicrosoft(result.idToken);
+        console.log('[MSALFlow] 6. Backend responded ✓:', res);
+      } catch (backendErr) {
+        console.error('[MSALFlow] 6. Backend call FAILED:', backendErr);
+        // Re-throw so the outer catch handles UI
+        throw backendErr;
+      }
+
+      console.log('[MSALFlow] 7. Storing user & calling setUser:', res.user);
       setUser(res.user);
+
+      console.log('[MSALFlow] 8. localStorage after setUser:', {
+        dms_token: localStorage.getItem('dms_token')?.slice(0, 40) + '...',
+        dms_user: localStorage.getItem('dms_user'),
+      });
+
       toast.success(`Welcome, ${res.user.full_name || res.user.email}!`);
+      console.log('[MSALFlow] 9. Calling navigate("/folders")');
       navigate('/folders');
+      console.log('[MSALFlow] 10. navigate() called — if you still see /auth/login, ProtectedRoutes or AuthContext.getMe() is redirecting you back');
     } catch (err: unknown) {
-      // Silently ignore user-cancelled popups
-      if (err instanceof Error && err.message.includes('user_cancelled')) return;
+      if (err instanceof Error && err.message.includes('user_cancelled')) {
+        console.log('[MSALFlow] User cancelled the popup — no action taken');
+        return;
+      }
+      console.error('[MSALFlow] CAUGHT ERROR:', err);
+      console.error('[MSALFlow] Error name:', err instanceof Error ? err.name : typeof err);
+      console.error('[MSALFlow] Error message:', err instanceof Error ? err.message : String(err));
       const msg = err instanceof Error ? err.message : 'Microsoft sign-in failed';
       toast.error(msg);
     } finally {
+      console.groupEnd();
       setMsalLoading(false);
     }
   };
