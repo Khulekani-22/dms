@@ -4,13 +4,9 @@ const msalConfig: Configuration = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID as string,
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID as string}`,
-    // /redirect.html is a minimal static page in public/ that calls
-    // handleRedirectPromise() and closes itself. Using it instead of the
-    // app root prevents the React router from loading inside the popup and
-    // navigating to /auth/login before MSAL can process the auth code.
     redirectUri: typeof window !== 'undefined'
-      ? `${window.location.origin}/redirect.html`
-      : 'http://localhost:5173/redirect.html',
+      ? window.location.origin
+      : 'http://localhost:5173',
   },
   cache: {
     cacheLocation: 'sessionStorage',
