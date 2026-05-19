@@ -88,24 +88,11 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  // Diagnose env var presence immediately
-  console.log('[microsoftLogin] ENV CHECK:', {
-    AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? '✓ set' : '✗ MISSING',
-    AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? '✓ set' : '✗ MISSING',
-    JWT_SECRET: process.env.JWT_SECRET ? '✓ set' : '✗ MISSING',
-    SUPABASE_URL: process.env.SUPABASE_URL ? '✓ set' : '✗ MISSING',
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ set' : '✗ MISSING',
-  });
-
-  // 1. Decode header to get kid, then verify signature + claims
+  // 1. Verify the Microsoft ID token signature and claims
   let payload: MicrosoftIdTokenPayload;
   try {
     const decoded = jwt.decode(idToken, { complete: true });
     if (!decoded || typeof decoded === 'string') throw new Error('Cannot decode token');
-
-    console.log('[microsoftLogin] token kid:', decoded.header.kid);
-    console.log('[microsoftLogin] token iss:', (decoded.payload as any).iss);
-    console.log('[microsoftLogin] token aud:', (decoded.payload as any).aud);
 
     const signingKey = await getMicrosoftSigningKey(decoded.header);
 
@@ -113,11 +100,8 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
       audience: process.env.AZURE_CLIENT_ID!,
       issuer: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0`,
     }) as unknown as MicrosoftIdTokenPayload;
-
-    console.log('[microsoftLogin] token verified ✓ oid:', payload.oid);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Token verification failed';
-    console.error('[microsoftLogin] Token verification FAILED:', msg);
     res.status(401).json({ error: `Invalid Microsoft token: ${msg}` });
     return;
   }
@@ -147,13 +131,8 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
   if (existing) {
     userId = existing.id;
     role = existing.role ?? 'admin';
-    console.log('[microsoftLogin] Existing user found:', userId);
   } else {
-    console.log('[microsoftLogin] New user — creating auth.users entry then profile...');
-
-    // Must create a real auth.users row first because dms_profiles.id
-    // is a FK to auth.users(id). Use the admin API so no password/email
-    // confirmation is required.
+    // First login — create an auth.users entry (required by the FK on dms_profiles.id)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       email_confirm: true,
@@ -161,25 +140,19 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
     });
 
     if (authError || !authData?.user) {
-      // User might already exist in auth.users (duplicate email) — look them up
-      console.warn('[microsoftLogin] createUser error:', authError?.message);
-
-      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-      console.log('[microsoftLogin] listUsers error:', listError?.message);
-
+      // Likely a duplicate email — find the existing auth user
+      const { data: { users } } = await supabase.auth.admin.listUsers();
       const existingAuthUser = users?.find((u) => u.email?.toLowerCase() === email);
       if (!existingAuthUser) {
         res.status(500).json({ error: 'Failed to create auth user', detail: authError?.message });
         return;
       }
       userId = existingAuthUser.id;
-      console.log('[microsoftLogin] Found existing auth user by email:', userId);
     } else {
       userId = authData.user.id;
-      console.log('[microsoftLogin] Created new auth user:', userId);
     }
 
-    // Upsert the profile row (trigger may have already created it)
+    // Upsert the profile (the trigger may have already created it)
     const { error: profileError } = await supabase
       .from('dms_profiles')
       .upsert({
@@ -191,8 +164,6 @@ export const microsoftLogin = async (req: Request, res: Response): Promise<void>
       }, { onConflict: 'id' });
 
     if (profileError) {
-      console.error('[microsoftLogin] Profile upsert error:', profileError.message, profileError.details);
-      // Non-fatal if row already exists — just update microsoft_id
       await supabase
         .from('dms_profiles')
         .update({ microsoft_id: microsoftId, email, full_name: fullName })

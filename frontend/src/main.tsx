@@ -12,19 +12,13 @@ async function bootstrap() {
 
   try {
     const result = await msalInstance.handleRedirectPromise();
-    console.log('[main] handleRedirectPromise result:', result);
-
     if (result?.idToken) {
-      // Microsoft redirect just landed — exchange token BEFORE React mounts
-      // so ProtectedRoutes sees isAuthenticated() = true immediately
-      console.log('[main] Got idToken from redirect, posting to backend...');
-      const res = await authService.loginWithMicrosoft(result.idToken);
-      console.log('[main] Backend responded — user stored:', res.user);
-      // Token + user are now in localStorage; app will mount authenticated
+      // Microsoft redirect landed — exchange token before React mounts
+      // so ProtectedRoutes sees isAuthenticated() = true on first render
+      await authService.loginWithMicrosoft(result.idToken);
     }
   } catch (err) {
-    console.error('[main] handleRedirectPromise error:', err);
-    // Clear any partial state and let the app mount unauthenticated
+    console.error('[auth] Microsoft redirect error:', err);
     localStorage.removeItem('dms_token');
     localStorage.removeItem('dms_user');
   }
