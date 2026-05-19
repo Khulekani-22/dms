@@ -36,8 +36,8 @@ const ShareManager = () => {
     setLoading(true);
     try {
       const [l, f] = await Promise.all([shareService.list(), folderService.list()]);
-      setLinks(l);
-      setFolders(f);
+      setLinks(Array.isArray(l) ? l : []);
+      setFolders(Array.isArray(f) ? f : []);
     } catch {
       toast.error('Failed to load share links');
     } finally {

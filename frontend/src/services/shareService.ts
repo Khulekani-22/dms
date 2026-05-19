@@ -22,7 +22,7 @@ export const shareService = {
   list: async (folderId?: string): Promise<ShareLink[]> => {
     const params = folderId ? { folder_id: folderId } : {};
     const { data } = await api.get<{ share_links: ShareLink[] }>('/share', { params });
-    return data.share_links;
+    return data.share_links ?? [];
   },
 
   create: async (payload: {

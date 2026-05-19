@@ -15,7 +15,7 @@ export const folderService = {
   list: async (parentId?: string): Promise<Folder[]> => {
     const params = parentId ? { parent_id: parentId } : {};
     const { data } = await api.get<{ folders: Folder[] }>('/folders', { params });
-    return data.folders;
+    return data.folders ?? [];
   },
 
   get: async (id: string): Promise<Folder> => {
