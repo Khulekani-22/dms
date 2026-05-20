@@ -42,7 +42,10 @@ export const emailShareLink = async (req: AuthRequest, res: Response): Promise<v
        </div>`
     : '';
 
-  const buildHtml = (recipientName: string) => `
+  const buildHtml = (recipientName: string) => {
+    const firstName = recipientName ? recipientName.split(' ')[0] : '';
+    const greeting = firstName ? `Dear <strong>${firstName}</strong>,` : 'Dear Valued Client,';
+    return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8" /></head>
@@ -55,9 +58,9 @@ export const emailShareLink = async (req: AuthRequest, res: Response): Promise<v
         <tr>
           <td style="background:linear-gradient(160deg,#E85D04 0%,#C44D02 100%);padding:32px 40px;text-align:center">
             <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px">
-              📄 Document Access
+              You have a new document ready to view
             </h1>
-            <p style="margin:8px 0 0;color:#fde8d4;font-size:14px">22 On Sloane – Document Management</p>
+            <p style="margin:8px 0 0;color:#fde8d4;font-size:14px">Shared securely by 22 On Sloane</p>
           </td>
         </tr>
 
@@ -65,7 +68,7 @@ export const emailShareLink = async (req: AuthRequest, res: Response): Promise<v
         <tr>
           <td style="padding:36px 40px">
             <p style="margin:0 0 16px;color:#374151;font-size:15px">
-              Hi${recipientName ? ` <strong>${recipientName}</strong>` : ''},
+              ${greeting}
             </p>
             <p style="margin:0 0 20px;color:#374151;font-size:15px">
               You've been granted access to the folder <strong style="color:#E85D04">"${folderName}"</strong>.
@@ -110,12 +113,13 @@ export const emailShareLink = async (req: AuthRequest, res: Response): Promise<v
   </table>
 </body>
 </html>`;
+  };
 
   // Build batch of emails — one per recipient
   const batch = validEmails.map((r) => ({
     from: FROM,
     to: [r.email],
-    subject: `📄 Access to "${folderName}" – PIN: ${pin}`,
+    subject: `22 On Sloane has shared "${folderName}" with you`,
     html: buildHtml(r.name ?? ''),
   }));
 
