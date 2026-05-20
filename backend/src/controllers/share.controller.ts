@@ -144,10 +144,25 @@ export const deleteShareLink = async (req: AuthRequest, res: Response): Promise<
 
 // POST /api/access/validate  (public — validate PIN and return JWT session)
 export const validatePin = async (req: Request, res: Response): Promise<void> => {
-  const { pin } = req.body;
+  const { pin, visitorName, visitorEmail } = req.body as {
+    pin: string;
+    visitorName?: string;
+    visitorEmail?: string;
+  };
 
   if (!pin || String(pin).length !== 5) {
     res.status(400).json({ error: 'A valid 5-digit PIN is required' });
+    return;
+  }
+
+  if (!visitorName?.trim() || !visitorEmail?.trim()) {
+    res.status(400).json({ error: 'Your name and email address are required to access this folder.' });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(visitorEmail.trim())) {
+    res.status(400).json({ error: 'Please provide a valid email address.' });
     return;
   }
 
@@ -178,15 +193,31 @@ export const validatePin = async (req: Request, res: Response): Promise<void> =>
     return;
   }
 
-  // Increment use_count
+  // Increment use_count and log visitor identity
   await supabase
     .from('share_links')
     .update({ use_count: link.use_count + 1 })
     .eq('id', link.id);
 
+  // Log this access with visitor identity
+  await supabase.from('access_logs').insert({
+    share_link_id: link.id,
+    action: 'pin_validated',
+    ip_address: req.ip ?? req.socket?.remoteAddress ?? 'unknown',
+    user_agent: req.headers['user-agent'] ?? '',
+    visitor_name: visitorName!.trim(),
+    visitor_email: visitorEmail!.trim().toLowerCase(),
+  });
+
   // Issue a short-lived JWT PIN session token (1 hour)
   const sessionToken = jwt.sign(
-    { pin: link.pin, folderId: link.folder_id, shareLinkId: link.id },
+    {
+      pin: link.pin,
+      folderId: link.folder_id,
+      shareLinkId: link.id,
+      visitorName: visitorName!.trim(),
+      visitorEmail: visitorEmail!.trim().toLowerCase(),
+    },
     process.env.JWT_SECRET!,
     { expiresIn: '1h' }
   );
@@ -194,5 +225,6 @@ export const validatePin = async (req: Request, res: Response): Promise<void> =>
   res.json({
     token: sessionToken,
     folder: link.folders,
+    visitor: { name: visitorName!.trim(), email: visitorEmail!.trim().toLowerCase() },
   });
 };

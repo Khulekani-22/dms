@@ -9,7 +9,7 @@ export const getLogs = async (req: AuthRequest, res: Response): Promise<void> =>
   let query = supabase
     .from('access_logs')
     .select(`
-      id, accessed_at, ip_address, user_agent, action,
+      id, accessed_at, ip_address, user_agent, action, visitor_name, visitor_email,
       share_links:share_link_id (
         pin,
         folders:folder_id (name)
@@ -36,7 +36,7 @@ export const exportLogs = async (req: AuthRequest, res: Response): Promise<void>
   const { data, error } = await supabase
     .from('access_logs')
     .select(`
-      id, accessed_at, ip_address, user_agent, action,
+      id, accessed_at, ip_address, user_agent, action, visitor_name, visitor_email,
       share_links:share_link_id (
         pin,
         folders:folder_id (name)
@@ -53,13 +53,15 @@ export const exportLogs = async (req: AuthRequest, res: Response): Promise<void>
     id: log.id,
     accessed_at: log.accessed_at,
     action: log.action,
+    visitor_name: log.visitor_name ?? '',
+    visitor_email: log.visitor_email ?? '',
     pin: log.share_links?.pin ?? '',
     folder: log.share_links?.folders?.name ?? '',
     ip_address: log.ip_address,
     user_agent: log.user_agent,
   }));
 
-  const headers = ['id', 'accessed_at', 'action', 'pin', 'folder', 'ip_address', 'user_agent'];
+  const headers = ['id', 'accessed_at', 'action', 'visitor_name', 'visitor_email', 'pin', 'folder', 'ip_address', 'user_agent'];
   const csv = [
     headers.join(','),
     ...rows.map((r: any) =>

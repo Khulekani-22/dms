@@ -16,6 +16,7 @@ export interface ShareLink {
 export interface ValidatePinResponse {
   token: string;
   folder: { id: string; name: string; description: string | null };
+  visitor: { name: string; email: string };
 }
 
 export const shareService = {
@@ -46,11 +47,16 @@ export const shareService = {
     await api.delete(`/share/${id}`);
   },
 
-  validatePin: async (pin: string): Promise<ValidatePinResponse> => {
-    const { data } = await api.post<ValidatePinResponse>('/share/access/validate', { pin });
-    // Store PIN session token for subsequent requests
+  validatePin: async (pin: string, visitorName: string, visitorEmail: string): Promise<ValidatePinResponse> => {
+    const { data } = await api.post<ValidatePinResponse>('/share/access/validate', {
+      pin,
+      visitorName,
+      visitorEmail,
+    });
+    // Store PIN session token and visitor info for subsequent requests
     sessionStorage.setItem('dms_pin_token', data.token);
     sessionStorage.setItem('dms_pin_folder', JSON.stringify(data.folder));
+    sessionStorage.setItem('dms_pin_visitor', JSON.stringify(data.visitor));
     return data;
   },
 

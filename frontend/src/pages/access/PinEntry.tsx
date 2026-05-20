@@ -5,6 +5,14 @@ import { shareService } from '../../services/shareService';
 const PinEntry = () => {
   const { pin: urlPin } = useParams<{ pin?: string }>();
   const navigate = useNavigate();
+
+  // ── Step 1: visitor identity ──────────────────────────────
+  const [step, setStep] = useState<'identity' | 'pin'>('identity');
+  const [visitorName, setVisitorName] = useState('');
+  const [visitorEmail, setVisitorEmail] = useState('');
+  const [identityError, setIdentityError] = useState('');
+
+  // ── Step 2: PIN entry ─────────────────────────────────────
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,12 +25,30 @@ const PinEntry = () => {
     }
   }, [urlPin]);
 
-  // Auto-submit when all 5 digits are filled
+  // Auto-submit when all 5 digits are filled (only on PIN step)
   useEffect(() => {
-    if (digits.every((d) => d !== '')) {
+    if (step === 'pin' && digits.every((d) => d !== '')) {
       handleValidate(digits.join(''));
     }
-  }, [digits]);
+  }, [digits, step]);
+
+  const handleIdentitySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIdentityError('');
+    if (!visitorName.trim()) {
+      setIdentityError('Please enter your full name.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(visitorEmail.trim())) {
+      setIdentityError('Please enter a valid email address.');
+      return;
+    }
+    setStep('pin');
+    // If PIN was pre-filled from URL, auto-submit after step change
+    if (urlPin && /^\d{5}$/.test(urlPin)) {
+      setTimeout(() => handleValidate(urlPin), 50);
+    }
+  };
 
   const handleDigitChange = (idx: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -52,7 +78,7 @@ const PinEntry = () => {
     setError('');
     setLoading(true);
     try {
-      await shareService.validatePin(pin);
+      await shareService.validatePin(pin, visitorName.trim(), visitorEmail.trim());
       navigate(`/access/${pin}/view`);
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.error ?? 'Invalid PIN. Please try again.';
@@ -81,55 +107,128 @@ const PinEntry = () => {
             </div>
             <h2 className="text-xl font-bold text-white leading-snug">Secure<br />Document Access</h2>
             <p className="text-orange-100 text-sm mt-3 max-w-[160px] leading-relaxed">
-              Enter your PIN to access shared documents.
+              {step === 'identity'
+                ? 'Please identify yourself before accessing shared documents.'
+                : 'Enter your PIN to access shared documents.'}
             </p>
           </div>
           <p className="relative z-10 text-orange-200 text-xs">DMS © {new Date().getFullYear()}</p>
         </div>
 
-        {/* Right form */}
+        {/* Right panel */}
         <div className="flex-1 flex flex-col justify-center px-8 py-10">
-          <h1 className="text-2xl font-bold text-neutral-800 dark:text-white mb-1">Enter Access PIN</h1>
-          <p className="text-sm text-neutral-400 mb-8">Enter the 5-digit PIN shared with you</p>
 
-        <div className="flex gap-3 justify-center mb-6" onPaste={handlePaste}>
-          {digits.map((digit, idx) => (
-            <input
-              key={idx}
-              ref={(el) => { inputRefs.current[idx] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleDigitChange(idx, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(idx, e)}
-              className={`w-12 h-14 text-center text-2xl font-bold rounded-xl border-2 outline-none transition
-                dark:bg-[#253042] dark:text-white
-                ${error ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
-                  : digit ? 'border-[#E85D04] bg-orange-50 dark:bg-orange-900/10'
-                  : 'border-neutral-200 dark:border-neutral-600'}`}
-              style={{ ['--focus-border' as string]: '#E85D04' }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#E85D04'; }}
-              onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.style.borderColor = ''; }}
-              disabled={loading}
-            />
-          ))}
-        </div>
+          {/* ── Step 1: Identity ── */}
+          {step === 'identity' && (
+            <>
+              <h1 className="text-2xl font-bold text-neutral-800 dark:text-white mb-1">Who are you?</h1>
+              <p className="text-sm text-neutral-400 mb-8">
+                Please share your details before accessing the documents.
+              </p>
+              <form onSubmit={handleIdentitySubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-neutral-600 dark:text-neutral-300">
+                    Full name <span className="text-[#E85D04]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="e.g. Jane Smith"
+                    value={visitorName}
+                    onChange={(e) => setVisitorName(e.target.value)}
+                    className="w-full border-2 rounded-xl px-4 py-3 text-sm outline-none transition
+                      dark:bg-[#253042] dark:text-white dark:border-neutral-600
+                      focus:border-[#E85D04]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-neutral-600 dark:text-neutral-300">
+                    Email address <span className="text-[#E85D04]">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="e.g. jane@example.com"
+                    value={visitorEmail}
+                    onChange={(e) => setVisitorEmail(e.target.value)}
+                    className="w-full border-2 rounded-xl px-4 py-3 text-sm outline-none transition
+                      dark:bg-[#253042] dark:text-white dark:border-neutral-600
+                      focus:border-[#E85D04]"
+                  />
+                </div>
 
-        {error && (
-          <p className="text-sm text-red-500 mb-4">{error}</p>
-        )}
+                {identityError && (
+                  <p className="text-sm text-red-500">{identityError}</p>
+                )}
 
-        {loading && (
-          <div className="flex items-center justify-center gap-2 text-neutral-400 text-sm">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent" style={{ borderColor: '#E85D04', borderTopColor: 'transparent' }} />
-            Verifying PIN…
-          </div>
-        )}
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl font-semibold text-white text-sm transition"
+                  style={{ background: 'linear-gradient(160deg, #E85D04 0%, #C44D02 100%)' }}
+                >
+                  Continue →
+                </button>
+              </form>
+              <p className="text-xs text-neutral-400 mt-6">
+                Your details are only used to log access and may be used to send you future communications.
+              </p>
+            </>
+          )}
 
-        <p className="text-xs text-neutral-400 mt-6">
-          Having trouble? Contact the person who shared this link with you.
-        </p>
+          {/* ── Step 2: PIN ── */}
+          {step === 'pin' && (
+            <>
+              <button
+                onClick={() => { setStep('identity'); setError(''); setDigits(['', '', '', '', '']); }}
+                className="flex items-center gap-1 text-xs text-neutral-400 hover:text-[#E85D04] mb-6 transition"
+              >
+                ← Back
+              </button>
+              <h1 className="text-2xl font-bold text-neutral-800 dark:text-white mb-1">Enter Access PIN</h1>
+              <p className="text-sm text-neutral-400 mb-2">Enter the 5-digit PIN shared with you</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-8">
+                Accessing as <strong className="text-[#E85D04]">{visitorName}</strong>
+              </p>
+
+              <div className="flex gap-3 justify-center mb-6" onPaste={handlePaste}>
+                {digits.map((digit, idx) => (
+                  <input
+                    key={idx}
+                    ref={(el) => { inputRefs.current[idx] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleDigitChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(idx, e)}
+                    autoFocus={idx === 0}
+                    className={`w-12 h-14 text-center text-2xl font-bold rounded-xl border-2 outline-none transition
+                      dark:bg-[#253042] dark:text-white
+                      ${error ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
+                        : digit ? 'border-[#E85D04] bg-orange-50 dark:bg-orange-900/10'
+                        : 'border-neutral-200 dark:border-neutral-600'}`}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#E85D04'; }}
+                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.style.borderColor = ''; }}
+                    disabled={loading}
+                  />
+                ))}
+              </div>
+
+              {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
+
+              {loading && (
+                <div className="flex items-center justify-center gap-2 text-neutral-400 text-sm">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent"
+                    style={{ borderColor: '#E85D04', borderTopColor: 'transparent' }} />
+                  Verifying PIN…
+                </div>
+              )}
+
+              <p className="text-xs text-neutral-400 mt-6">
+                Having trouble? Contact the person who shared this link with you.
+              </p>
+            </>
+          )}
+
         </div>
       </div>
     </div>
@@ -137,3 +236,4 @@ const PinEntry = () => {
 };
 
 export default PinEntry;
+
